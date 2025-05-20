@@ -1,0 +1,255 @@
+// ReservaEntradasCine.c
+// Sistema de reserva de entradas de cine
+// Autores: Emiliano, Héctor
+// Fecha: 19/05/2025
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+// Constantes globales
+#define MAX_RESERVAS 100
+#define MAX_ASIENTOS 50
+#define MAX_NOMBRE 50
+#define MAX_PELICULA 50
+#define MAX_SALA 10
+#define MAX_CLASIFICACION 10
+#define MAX_FECHA 12
+#define MAX_HORARIO 10
+
+// Estructura para una reserva
+typedef struct {
+    char nombreCliente[MAX_NOMBRE];
+    char nombrePelicula[MAX_PELICULA];
+    char sala[MAX_SALA];
+    char clasificacion[MAX_CLASIFICACION];
+    char fechaPelicula[MAX_FECHA];
+    char horario[MAX_HORARIO];
+    int asientos[MAX_ASIENTOS]; // 1 si reservado, 0 si libre
+    int cantidadAsientos;
+    float importeTotal;
+    char fechaReserva[MAX_FECHA];
+} Reserva;
+
+// Variables globales
+Reserva reservas[MAX_RESERVAS];
+int totalReservas = 0;
+int asientosDisponibles[MAX_ASIENTOS]; // 1 si libre, 0 si ocupado
+
+// Prototipos de funciones
+void mostrarMenu();
+void reservarEntrada();
+void cancelarReserva();
+void consultarReservas();
+void mostrarAsientosDisponibles();
+void generarTicketPago(int reservaId);
+
+// Función principal
+int main() {
+    // Inicializar asientos disponibles
+    for (int i = 0; i < MAX_ASIENTOS; i++) {
+        asientosDisponibles[i] = 1;
+    }
+    mostrarMenu();
+    return 0;
+}
+
+// Implementación de funciones
+void mostrarMenu() {
+    int opcion;
+    do {
+        printf("\n===== SISTEMA DE RESERVA DE ENTRADAS DE CINE =====\n");
+        printf("1. Reservar entrada\n");
+        printf("2. Cancelar reserva\n");
+        printf("3. Consultar reservas\n");
+        printf("4. Mostrar asientos disponibles\n");
+        printf("5. Salir\n");
+        printf("Seleccione una opción: ");
+        scanf("%d", &opcion);
+        switch(opcion) {
+            case 1:
+                reservarEntrada();
+                break;
+            case 2:
+                cancelarReserva();
+                break;
+            case 3:
+                consultarReservas();
+                break;
+            case 4:
+                mostrarAsientosDisponibles();
+                break;
+            case 5:
+                printf("Saliendo del sistema...\n");
+                break;
+            default:
+                printf("Opción no válida. Intente de nuevo.\n");
+        }
+    } while(opcion != 5);
+}
+
+void reservarEntrada() {
+    if (totalReservas >= MAX_RESERVAS) {
+        printf("No se pueden realizar más reservas.\n");
+        return;
+    }
+    Reserva nueva;
+    int asientosSolicitados, asiento, i;
+    float precioPorAsiento = 80.00;
+    printf("\n--- Reservar Entrada ---\n");
+    printf("Nombre del cliente: ");
+    fflush(stdin); fgets(nueva.nombreCliente, MAX_NOMBRE, stdin); nueva.nombreCliente[strcspn(nueva.nombreCliente, "\n")] = 0;
+    printf("Nombre de la película: ");
+    fflush(stdin); fgets(nueva.nombrePelicula, MAX_PELICULA, stdin); nueva.nombrePelicula[strcspn(nueva.nombrePelicula, "\n")] = 0;
+    printf("Sala: ");
+    fflush(stdin); fgets(nueva.sala, MAX_SALA, stdin); nueva.sala[strcspn(nueva.sala, "\n")] = 0;
+    printf("Clasificación (elige una opción):\n");
+    printf("1. AA\n");
+    printf("2. A\n");
+    printf("3. B\n");
+    printf("4. B15\n");
+    printf("5. C\n");
+    printf("6. D\n");
+    printf("Seleccione la clasificación (1-6): ");
+    int opcionClasif = 0;
+    do {
+        scanf("%d", &opcionClasif);
+        switch(opcionClasif) {
+            case 1: strcpy(nueva.clasificacion, "AA"); break;
+            case 2: strcpy(nueva.clasificacion, "A"); break;
+            case 3: strcpy(nueva.clasificacion, "B"); break;
+            case 4: strcpy(nueva.clasificacion, "B15"); break;
+            case 5: strcpy(nueva.clasificacion, "C"); break;
+            case 6: strcpy(nueva.clasificacion, "D"); break;
+            default: printf("Opción inválida. Intente de nuevo: "); opcionClasif = 0;
+        }
+    } while(opcionClasif == 0);
+    printf("Fecha de la película (dd/mm/aaaa): ");
+    fflush(stdin); fgets(nueva.fechaPelicula, MAX_FECHA, stdin); nueva.fechaPelicula[strcspn(nueva.fechaPelicula, "\n")] = 0;
+    printf("Horario: ");
+    fflush(stdin); fgets(nueva.horario, MAX_HORARIO, stdin); nueva.horario[strcspn(nueva.horario, "\n")] = 0;
+    printf("¿Cuántos asientos desea reservar? (1-%d): ", MAX_ASIENTOS);
+    scanf("%d", &asientosSolicitados);
+    if (asientosSolicitados < 1 || asientosSolicitados > MAX_ASIENTOS) {
+        printf("Cantidad inválida.\n");
+        return;
+    }
+    mostrarAsientosDisponibles();
+    nueva.cantidadAsientos = 0;
+    memset(nueva.asientos, 0, sizeof(nueva.asientos));
+    for (i = 0; i < asientosSolicitados; i++) {
+        printf("Seleccione el número de asiento #%d: ", i+1);
+        scanf("%d", &asiento);
+        if (asiento < 1 || asiento > MAX_ASIENTOS || asientosDisponibles[asiento-1] == 0) {
+            printf("Asiento no disponible. Intente otro.\n");
+            i--;
+        } else {
+            nueva.asientos[asiento-1] = 1;
+            asientosDisponibles[asiento-1] = 0;
+            nueva.cantidadAsientos++;
+        }
+    }
+    nueva.importeTotal = precioPorAsiento * nueva.cantidadAsientos;
+    // Fecha de reserva actual
+    time_t t = time(NULL);
+    struct tm tm = *localtime(&t);
+    snprintf(nueva.fechaReserva, MAX_FECHA, "%02d/%02d/%04d", tm.tm_mday, tm.tm_mon+1, tm.tm_year+1900);
+    reservas[totalReservas] = nueva;
+    printf("\nReserva realizada con éxito.\n");
+    generarTicketPago(totalReservas);
+    totalReservas++;
+}
+
+void cancelarReserva() {
+    if (totalReservas == 0) {
+        printf("No hay reservas para cancelar.\n");
+        return;
+    }
+    int id, i, j;
+    printf("\n--- Cancelar Reserva ---\n");
+    for (i = 0; i < totalReservas; i++) {
+        printf("%d. %s - %s (%d asientos)\n", i+1, reservas[i].nombreCliente, reservas[i].nombrePelicula, reservas[i].cantidadAsientos);
+    }
+    printf("Ingrese el número de reserva a cancelar (1-%d): ", totalReservas);
+    scanf("%d", &id);
+    if (id < 1 || id > totalReservas) {
+        printf("Reserva inválida.\n");
+        return;
+    }
+    id--;
+    // Liberar asientos
+    for (j = 0; j < MAX_ASIENTOS; j++) {
+        if (reservas[id].asientos[j] == 1) {
+            asientosDisponibles[j] = 1;
+        }
+    }
+    // Eliminar reserva desplazando el resto
+    for (i = id; i < totalReservas - 1; i++) {
+        reservas[i] = reservas[i+1];
+    }
+    totalReservas--;
+    printf("Reserva cancelada exitosamente.\n");
+}
+
+void consultarReservas() {
+    if (totalReservas == 0) {
+        printf("No hay reservas registradas.\n");
+        return;
+    }
+    printf("\n--- Consultar Reservas ---\n");
+    for (int i = 0; i < totalReservas; i++) {
+        printf("Reserva #%d:\n", i+1);
+        printf("  Cliente: %s\n", reservas[i].nombreCliente);
+        printf("  Película: %s\n", reservas[i].nombrePelicula);
+        printf("  Sala: %s\n", reservas[i].sala);
+        printf("  Clasificación: %s\n", reservas[i].clasificacion);
+        printf("  Fecha película: %s\n", reservas[i].fechaPelicula);
+        printf("  Horario: %s\n", reservas[i].horario);
+        printf("  Fecha de reserva: %s\n", reservas[i].fechaReserva);
+        printf("  Asientos: ");
+        for (int j = 0; j < MAX_ASIENTOS; j++) {
+            if (reservas[i].asientos[j] == 1) {
+                printf("%d ", j+1);
+            }
+        }
+        printf("\n  Importe Total: %.2f\n", reservas[i].importeTotal);
+        printf("---------------------------------------------\n");
+    }
+}
+
+void mostrarAsientosDisponibles() {
+    printf("\nAsientos disponibles (1=libre, 0=ocupado):\n");
+    for (int i = 0; i < MAX_ASIENTOS; i++) {
+        printf("%2d[%d]  ", i+1, asientosDisponibles[i]);
+        if ((i+1)%10 == 0) printf("\n");
+    }
+}
+
+void generarTicketPago(int reservaId) {
+    if (reservaId < 0 || reservaId >= totalReservas+1) {
+        printf("ID de reserva inválido.\n");
+        return;
+    }
+    Reserva *r = &reservas[reservaId];
+    printf("\n");
+    printf("╔════════════════════════════════════════════════════════════╗\n");
+    printf("║                  TICKET DE PAGO - CINE                    ║\n");
+    printf("╠════════════════════════════════════════════════════════════╣\n");
+    printf("║ Cine: Cine HE                                        ║\n");
+    printf("║ Dirección: UAPT, Tianguistenco                      ║\n");
+    printf("║ Teléfono: 555-1234-678                                       ║\n");
+    printf("║ Fecha de reserva: %-38s║\n", r->fechaReserva);
+    printf("╠════════════════════════════════════════════════════════════╣\n");
+    printf("║ Cliente: %-47s║\n", r->nombreCliente);
+    printf("║ Película: %-46s║\n", r->nombrePelicula);
+    printf("║ Sala: %-51s║\n", r->sala);
+    printf("║ Clasificación: %-43s║\n", r->clasificacion);
+    printf("║ Fecha película: %-42s║\n", r->fechaPelicula);
+    printf("║ Horario: %-49s║\n", r->horario);
+    printf("║ No. de asientos: %-41d║\n", r->cantidadAsientos);
+    printf("║ Importe Total: $%7.2f                                    ║\n", r->importeTotal);
+    printf("╠════════════════════════════════════════════════════════════╣\n");
+    printf("║ ¡Gracias por su compra!                                   ║\n");
+    printf("╚════════════════════════════════════════════════════════════╝\n");
+}
